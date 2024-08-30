@@ -5,7 +5,7 @@ Estos resuelven una ecuacion diferencial ordinaria del siguiente tipo:
 Para usar correctamente se debe recordar que las variables deben indicarse 
 en el mismo orden cómo se está expresando la función.
 """
-dt=0.1
+dt=10
 "Integracion por euler"
 def integracion (dy,y,x):
     k1=dy(y,x)

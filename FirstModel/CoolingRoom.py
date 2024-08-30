@@ -4,13 +4,11 @@ from Integration import dt
 import matplotlib.pyplot as plt
 import numpy as np
 
-" Configuracion Inicial del Simulador"
-tfinal_horas=24#horas
-tfinal=int(tfinal_horas*3600)#sec
-n=int(tfinal/dt+1)#numero de elementos para Array
-tsalto_minutos=60#min
-tsalto=tsalto_minutos*60#sec
+"__Configuracion General del Simulador__"
+tfinal_horas=12#horas
+tsalto_minutos=180#min
 Qcool_value=50#W
+mass_fruit=50#kg
 
 ## Propiedades de la camara de refrigeracion
 height=2.3#m
@@ -23,8 +21,9 @@ P_air=101325#Pa
 
 "Calor de Conveccion de la fruta"
 def Conv_fruit_room(T_fruit,T_room):
-    U=50  # W/K
-    return U*(T_fruit-T_room)
+    U=100;
+    SA_fruit= 1#m^2
+    return U*SA_fruit*(T_fruit-T_room)
   
 "Calor de Conveccion del ambiente a la cámara"
 def Conv_amb_room(T_amb,T_room):
@@ -46,23 +45,25 @@ def Id_T_room(Q_fruit,Q_fan,Q_room,Q_cool,T_room,tiempo):
 "Funcion que calcula la nueva temperatura de la fruta"
 def Id_T_fruit(Q_fruit,T_fruit,tiempo):
     #densidad=1100#kg/m^3
-    masa=200#densidad*v_fruta (kg)
     c_p=1950#J/kg-K
     def d_T_fruit(T_fruit,tiempo):
-        return (-Q_fruit)/(masa*c_p)
+        return (-Q_fruit)/(mass_fruit*c_p)
     return integracion(d_T_fruit,T_fruit,tiempo)
 
-#Crear los arraysvariables_T = ["tiempo", "Troom", "Tfruit", "Tamb"]
+"__Configuracion Adicional__"
+#Pasar los tiempos a unidades estándar
+tfinal=int(tfinal_horas*3600)#sec
+n=int(tfinal/dt+1)#numero de elementos para Array
+tsalto=tsalto_minutos*60#sec
 
+#Crear los arrays variables_T = ["tiempo", "Troom", "Tfruit", "Tamb"]
 tiempo=np.zeros(n)
-
 variables_T = ["T_room", "T_fruit", "T_amb"]
 data_T={i:np.zeros(n) for i in variables_T}
-
 variables_Q = ["Qfruit", "Qfan", "Qamb_room", "Qcool"]
 data_Q={i:np.zeros(n) for i in variables_Q}
 
-# Condiciones iniciales de las variables
+"__Condiciones iniciales de las variables__"
 tiempo[0]=0
 data_T["T_amb"][0]=300#K
 "Temperaturas Dinámicas"
@@ -73,6 +74,7 @@ data_T["T_fruit"][0]=298#K
 tiempo = np.linspace(0, tfinal, int(tfinal/dt)+1)
 data_Q["Qcool"]= np.where(tiempo >= tsalto, Qcool_value, 0)
 
+"__Bucle Principal__"
 for i in range(dt,tfinal+dt,dt):
     j=int(i/dt) # ubicación del dato
     #Se calculan los calores:
@@ -84,31 +86,38 @@ for i in range(dt,tfinal+dt,dt):
     data_T["T_room"][j]=(Id_T_room(data_Q["Qfruit"][j-1],data_Q["Qfan"][j-1],data_Q["Qamb_room"][j-1],data_Q["Qcool"][j-1],data_T["T_room"][j-1],tiempo[j-1]))
     data_T["T_fruit"][j]=(Id_T_fruit(data_Q["Qfruit"][j-1],data_T["T_fruit"][j-1],tiempo[j-1]))
     data_T["T_amb"][j]=data_T["T_amb"][j-1]
+    
+"__Graficas de la simulacion__"
 
-# Plotear todas las gráficas de data_T en una distribución 2x2
-plt.figure(figsize=(8, 6))  # Tamaño de la figura
+plt.close('all')
 
-for i, (key, data) in enumerate(data_T.items(), 1):
-    plt.subplot(2, 2, i)  # Crear subplots en una cuadrícula de 2x2
-    plt.plot(tiempo, data)
-    plt.title(f'{key}')
-    plt.xlabel('Tiempo (s)')
-    plt.ylabel('Temperatura (K)')
-    plt.grid(True)
+fig, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 6))
 
-plt.tight_layout()  # Ajustar la disposición para evitar solapamientos
+axs[0].plot(tiempo/60, data_Q["Qcool"], 'r')
+axs[0].set_title('u')
+axs[0].set_ylabel('Q cool [W]')
+axs[0].grid(True) 
+axs[0].set_ylim(0,60)
+
+
+# Segundo gráfico
+axs[1].plot(tiempo/60, data_T["T_room"]-273, 'g')
+axs[1].set_title('y1')
+axs[1].set_ylabel('Temp. habitacion [K]')
+axs[1].grid(True) 
+#axs[1].set_ylim(-2, 2)
+
+# Tercer gráfico
+axs[2].plot(tiempo/60, data_T["T_fruit"]-273, 'b')
+axs[2].set_title('y2')
+axs[2].set_xlabel('Tiempo [min]')
+axs[2].set_ylabel('Temp. fruta [K]')
+axs[2].grid(True) 
+
+fig.suptitle('Resultados de Simulación')
 plt.show()
 
-# Plotear todas las gráficas de data_Q en una distribución 2x2
-plt.figure(figsize=(8, 6))  # Tamaño de la figura
 
-for i, (key, data) in enumerate(data_Q.items(), 1):
-    plt.subplot(2, 2, i)  # Crear subplots en una cuadrícula de 2x2
-    plt.plot(tiempo[1:], data[1:])  # Omitir el primer valor de 'tiempo' que es 0
-    plt.title(f'{key}')
-    plt.xlabel('Tiempo (s)')
-    plt.ylabel('Tasa de Calor (W)')
-    plt.grid(True)
 
-plt.tight_layout()  # Ajustar la disposición para evitar solapamientos
-plt.show()
+
+
