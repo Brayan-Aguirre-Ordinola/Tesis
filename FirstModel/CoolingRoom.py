@@ -1,7 +1,5 @@
 "---------------------------------------IMPORTACION DE LIBRERIAS---------------------------------------"
 from CoolProp.CoolProp import PropsSI as cp
-from Integration import integracion
-from Integration import dt
 import matplotlib.pyplot as plt
 import numpy as np
 import math
@@ -11,7 +9,7 @@ tfinal_horas=3#horas
 tsalto_minutos=0#min
 Qcool_value=5500#W
 mass_fruit=256#kg
-
+dt=10#s
 "---------------------------------------FUNCIONES---------------------------------------"
 "Area superficial en función de la masa del mango"
 def fruit_area(mass_fruit):  #mass_fruit en kg
@@ -29,14 +27,15 @@ def fruit_area(mass_fruit):  #mass_fruit en kg
 
 "Calor de Conveccion de la fruta"
 def Conv_fruit_room(T_fruit,T_room):
-    U=1000;
-    SA_fruit= 1#m^2
+    U=97.595;
+    SA_fruit=fruit_area(mass_fruit)#m^2
     return U*SA_fruit*(T_fruit-T_room)
   
 "Calor de Conveccion del ambiente a la cámara"
 def Conv_amb_room(T_amb,T_room):
-    U=310 # W/K
-    return U*(T_amb-T_room)
+    U=6.0594 # W/K
+    SA_room=2*(height*width+length*height)+length*width#m^2
+    return U*SA_room*(T_amb-T_room)
 
 "Calor de Conveccion del ventilador"
 Conv_fan=20#W
@@ -58,11 +57,18 @@ def Id_T_fruit(Q_fruit,T_fruit,tiempo):
         return (-Q_fruit)/(mass_fruit*c_p)
     return integracion(d_T_fruit,T_fruit,tiempo)
 
+"Integracion por Runge Kutta"
+def integracion (dy,y,x):
+    k1=dy(y,x) 
+    k2=dy(y+dt*k1/2,x+dt/2)
+    k3=dy(y+dt*k2/2,x+dt/2)
+    k4=dy(y+dt*k3,x+dt)
+    return y+(k1+2*k2+2*k3+k4)*dt/6
+
 "---------------------------------------CONFIG ADICIONAL---------------------------------------"
 # Propiedades de la camara de refrigeracion
 height=2.2; width=4.2; length=3.8 #All units in m
 v_room=height*width*length#m^3
-SA_room=2*(height*width+length*height)+length*width#m^2
 P_air=101325#Pa
 
 # Pasar los tiempos a unidades estándar
@@ -104,7 +110,7 @@ for i in range(dt,tfinal+dt,dt):
 
 #plt.close('all')    #Se cierran las gráficas existentes
 
-fig, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 6))
+fig, axs = plt.subplots(3, 1, sharex=True, figsize=(5, 6))
 
 axs[0].plot(tiempo/60, data_Q["Qcool"]/1000, 'r')
 axs[0].set_title('Q cool')
