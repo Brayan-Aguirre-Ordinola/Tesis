@@ -1,37 +1,45 @@
+"---------------------------------------IMPORTACION DE LIBRERIAS---------------------------------------"
 from CoolProp.CoolProp import PropsSI as cp
 from Integration import integracion
 from Integration import dt
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 
-"__Configuracion General del Simulador__"
-tfinal_horas=12#horas
-tsalto_minutos=180#min
-Qcool_value=50#W
-mass_fruit=50#kg
+"---------------------------------------CONFIGURACION DEL SIMULADOR---------------------------------------"
+tfinal_horas=3#horas
+tsalto_minutos=0#min
+Qcool_value=5500#W
+mass_fruit=256#kg
 
-## Propiedades de la camara de refrigeracion
-height=2.3#m
-width=4.4#m
-length=4#m
-v_room=height*width*length#m^3
-#v_fruta=1#m - "Valor no usado"
-SA_room=2*(height*width+length*height)+length*width#m^2
-P_air=101325#Pa
+"---------------------------------------FUNCIONES---------------------------------------"
+"Area superficial en función de la masa del mango"
+def fruit_area(mass_fruit):  #mass_fruit en kg
+    peso_mango= 0.5          #kg
+    densidad_mango = 1100    #kg/m^3
+    NuMangos=int(mass_fruit/peso_mango) 
+    factor_correccion = 0.7  
+    #Factor de corrección por contacto entre mangos y resistencia térmica de la caja"
+    volumen_mango = peso_mango / densidad_mango                    # m^3
+    radio_mango = (3 * volumen_mango / (4 * math.pi)) ** (1 / 3)   # m
+    area_superficial_mango = 4 * math.pi * radio_mango ** 2        # m^2
+    area_superficial_total = area_superficial_mango * NuMangos     # m^2
+    area_superficial_efectiva = factor_correccion * area_superficial_total  # m^2
+    return area_superficial_efectiva
 
 "Calor de Conveccion de la fruta"
 def Conv_fruit_room(T_fruit,T_room):
-    U=100;
+    U=1000;
     SA_fruit= 1#m^2
     return U*SA_fruit*(T_fruit-T_room)
   
 "Calor de Conveccion del ambiente a la cámara"
 def Conv_amb_room(T_amb,T_room):
-    U=10 # W/K
+    U=310 # W/K
     return U*(T_amb-T_room)
 
 "Calor de Conveccion del ventilador"
-Conv_fan=5 #W
+Conv_fan=20#W
 
 "Funcion que calcula la nueva temperatura del room"
 def Id_T_room(Q_fruit,Q_fan,Q_room,Q_cool,T_room,tiempo):
@@ -50,31 +58,36 @@ def Id_T_fruit(Q_fruit,T_fruit,tiempo):
         return (-Q_fruit)/(mass_fruit*c_p)
     return integracion(d_T_fruit,T_fruit,tiempo)
 
-"__Configuracion Adicional__"
-#Pasar los tiempos a unidades estándar
+"---------------------------------------CONFIG ADICIONAL---------------------------------------"
+# Propiedades de la camara de refrigeracion
+height=2.2; width=4.2; length=3.8 #All units in m
+v_room=height*width*length#m^3
+SA_room=2*(height*width+length*height)+length*width#m^2
+P_air=101325#Pa
+
+# Pasar los tiempos a unidades estándar
 tfinal=int(tfinal_horas*3600)#sec
 n=int(tfinal/dt+1)#numero de elementos para Array
 tsalto=tsalto_minutos*60#sec
 
-#Crear los arrays variables_T = ["tiempo", "Troom", "Tfruit", "Tamb"]
+# Crear los arrays
 tiempo=np.zeros(n)
 variables_T = ["T_room", "T_fruit", "T_amb"]
 data_T={i:np.zeros(n) for i in variables_T}
 variables_Q = ["Qfruit", "Qfan", "Qamb_room", "Qcool"]
 data_Q={i:np.zeros(n) for i in variables_Q}
 
-"__Condiciones iniciales de las variables__"
-tiempo[0]=0
-data_T["T_amb"][0]=300#K
-"Temperaturas Dinámicas"
-data_T["T_room"][0]=293#K
-data_T["T_fruit"][0]=298#K
-
 ##definicion del tiempo y el salto:
 tiempo = np.linspace(0, tfinal, int(tfinal/dt)+1)
 data_Q["Qcool"]= np.where(tiempo >= tsalto, Qcool_value, 0)
 
-"__Bucle Principal__"
+"---------------------------------------CONDICIONES INICIALES---------------------------------------"
+tiempo[0]=0
+data_T["T_amb"][0]=273.15+27#K
+data_T["T_room"][0]=273.15+25#K
+data_T["T_fruit"][0]=273.15+25#K
+
+"---------------------------------------BUCLE PRINCIPAL---------------------------------------"
 for i in range(dt,tfinal+dt,dt):
     j=int(i/dt) # ubicación del dato
     #Se calculan los calores:
@@ -87,37 +100,32 @@ for i in range(dt,tfinal+dt,dt):
     data_T["T_fruit"][j]=(Id_T_fruit(data_Q["Qfruit"][j-1],data_T["T_fruit"][j-1],tiempo[j-1]))
     data_T["T_amb"][j]=data_T["T_amb"][j-1]
     
-"__Graficas de la simulacion__"
+"---------------------------------------GRAFICAS DE SIMULACION---------------------------------------"
 
-plt.close('all')
+#plt.close('all')    #Se cierran las gráficas existentes
 
 fig, axs = plt.subplots(3, 1, sharex=True, figsize=(6, 6))
 
-axs[0].plot(tiempo/60, data_Q["Qcool"], 'r')
-axs[0].set_title('u')
-axs[0].set_ylabel('Q cool [W]')
+axs[0].plot(tiempo/60, data_Q["Qcool"]/1000, 'r')
+axs[0].set_title('Q cool')
+axs[0].set_ylabel('[kW]')
 axs[0].grid(True) 
-axs[0].set_ylim(0,60)
-
+axs[0].set_ylim(0,Qcool_value*1.1/1000)
 
 # Segundo gráfico
-axs[1].plot(tiempo/60, data_T["T_room"]-273, 'g')
-axs[1].set_title('y1')
-axs[1].set_ylabel('Temp. habitacion [K]')
+axs[1].plot(tiempo/60, data_T["T_room"]-273.15, 'g')
+axs[1].set_title('Temp. habitacion')
+axs[1].set_ylabel('[°C]')
 axs[1].grid(True) 
-#axs[1].set_ylim(-2, 2)
+axs[1].set_ylim(8, data_T["T_room"][0]-273.15+1)
 
 # Tercer gráfico
-axs[2].plot(tiempo/60, data_T["T_fruit"]-273, 'b')
-axs[2].set_title('y2')
+axs[2].plot(tiempo/60, data_T["T_fruit"]-273.15, 'b')
+axs[2].set_title('Temp. fruta')
 axs[2].set_xlabel('Tiempo [min]')
-axs[2].set_ylabel('Temp. fruta [K]')
+axs[2].set_ylabel('[°C]')
 axs[2].grid(True) 
+axs[2].set_ylim(8, data_T["T_fruit"][0]-273.15+1)
 
 fig.suptitle('Resultados de Simulación')
 plt.show()
-
-
-
-
-

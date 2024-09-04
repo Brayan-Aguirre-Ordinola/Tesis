@@ -7,12 +7,12 @@ en el mismo orden cómo se está expresando la función.
 """
 dt=10
 "Integracion por euler"
-def integracion (dy,y,x):
+def integracion1 (dy,y,x):
     k1=dy(y,x)
     return y+k1*dt
     
 "Integración por Runge Kutta"
-def integracion1 (dy,y,x):
+def integracion (dy,y,x):
     k1=dy(y,x) 
     k2=dy(y+dt*k1/2,x+dt/2)
     k3=dy(y+dt*k2/2,x+dt/2)
