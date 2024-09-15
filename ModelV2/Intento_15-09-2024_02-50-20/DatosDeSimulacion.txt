@@ -1,0 +1,8 @@
+Tiempo de simulación : 1 horas.
+Tiempo de muestreo : 10 segundos.
+Temperatura del evaporador a la salida: -10.0 °C 
+Condiciones Iniciales de Simulación: 
+Temperatura ambiente : 27 °C 
+Temperatura de la cámara : 25 °C 
+Temperatura de la fruta : 25 °C 
+Temperatura del condensador : 1 °C 
