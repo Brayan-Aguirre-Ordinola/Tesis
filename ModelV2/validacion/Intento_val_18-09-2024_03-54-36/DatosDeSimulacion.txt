@@ -1,0 +1,11 @@
+Tiempo de simulación : 0.8333333333333334 horas.
+Tiempo de muestreo : 1 segundos.
+Condiciones Iniciales de Simulación: 
+Temperatura ambiente : 28.4 °C 
+Temperatura de la cámara : 25 °C 
+Temperatura de la fruta : 14.520000000000001 °C 
+Temperatura del condensador : 0.8333333333333334 °C 
+Valores de Constantes variables: 
+U del ambiente : 2.8 °C 
+U del ambiente : 10 °C 
+Q ventilador : 100 °C 

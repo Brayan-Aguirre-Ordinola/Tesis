@@ -17,5 +17,5 @@ def crear_separador(texto, longitud_total):
     return separador * guiones_izquierda + texto + separador * guiones_derecha
 
 # Ejemplo de uso:
-separador = crear_separador("GUARDAR EL ARCHIVO", 90)
+separador = crear_separador("Valores para Calibrar", 90)
 print(separador)
