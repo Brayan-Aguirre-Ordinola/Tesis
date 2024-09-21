@@ -1,24 +1,20 @@
+import numpy as np
 import CoolProp.CoolProp as CP
+import scipy.io
 
-def cal(temperatura, presion):
-    try:
-        calidad = CP.PropsSI('Q', 'T', temperatura, 'P', presion, 'R134A')
-        if 0 <= calidad <= 1:
-            return calidad  # Retorna la calidad si está entre 0 y 1
-        else:
-            return None  # No está en la región de mezcla (líquido comprimido o vapor sobrecalentado)
-    except ValueError:
-        return None  # Si CoolProp no puede calcular la calidad, significa que no está en la región de mezcla
+def data_val(name,n):
+    # Cargar el archivo .mat
+    data = scipy.io.loadmat(name)["data_evaporador"]
+    tiempo = data[:n, 0]
+    temp_eva = data[:n, 1]
+    pres_eva = data[:n, 2]
+    return tiempo, temp_eva+273.15, pres_eva*1e5
 
-# Definir condiciones
-temperatura = 25.65 +273.15 # Temperatura en Kelvin
-presion = 4.89e5  # Presión en Pascales
+tiempo, temp_eva, pres_eva = data_val("data_evaporador.mat", 3000)
 
-# Calcular la calidad
-calidad = cal(temperatura, presion)
+def densidad (temperatura,presion):
+    densidad=cp('D', 'T', temperatura, 'P', presion, 'Air')
 
-# Mostrar resultado
-if calidad is not None:
-    print(f"Calidad del refrigerante R134A a T={temperatura} K y P={presion} Pa: {calidad}")
-else:
-    print("El refrigerante no está en la región de mezcla (líquido o vapor).")
+
+for i in range (len(tiempo)+1):
+    den[i]=densidad(data_T["T_room"][i],101325)
