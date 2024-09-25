@@ -1,0 +1,6 @@
+Tiempos en los que se dan los saltos:
+3000
+7855
+11104
+20457
+26385

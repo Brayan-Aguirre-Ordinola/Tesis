@@ -17,5 +17,11 @@ def crear_separador(texto, longitud_total):
     return separador * guiones_izquierda + texto + separador * guiones_derecha
 
 # Ejemplo de uso:
-separador = crear_separador("Valores para Calibrar", 90)
+separador = crear_separador("Funciones Generales", 90)
+print(separador)
+
+separador = crear_separador("Funciones de Calor", 90)
+print(separador)
+
+separador = crear_separador("Funciones de Cálculo de Temperaturas", 90)
 print(separador)

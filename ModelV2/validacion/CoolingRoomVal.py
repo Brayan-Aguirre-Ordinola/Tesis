@@ -6,35 +6,47 @@ import math
 import os
 from datetime import datetime
 import scipy.io
-"-----------------------------EXTRACCION DE DATA DE VALIDACION-----------------------------"
-"Funcion para extraer la data"
-def data_val(name,n):
-    # Cargar el archivo .mat
-    data = scipy.io.loadmat(name)["data_val"]
-    tiempo = data[:n, 0]
-    temp_eva = data[:n, 1]
-    T_room = data[:n, 2]
-    T_amb = data[:n, 3]
-    return tiempo, temp_eva, T_room, T_amb
+import time
 
-tiempo_simulacion, temp_eva_real,T_room_real,temp_amb_real=data_val('data_val.mat', 26000) ##Modificar la temperatura del evaporador y corregir calidad
+start_time = time.time()
+"------------------------------LECTURA Y ASIGNACION DE DATOS-------------------------------"
+data = scipy.io.loadmat("data.mat")["data"]
+n=int(26e3)
+#Protección contra sobretiempos
+if n>len(data):
+    n=len(data)
+#Creación de Diccionarios
+variables_U=["Pot_compresor"]
+data_U={i:np.zeros(n) for i in variables_U}
+variables_T=["T_room","T_amb","T_evap","T_cond","T_fruit"]
+data_T={i:np.zeros(n) for i in variables_T}
+variables_Q=["Qfruit","Qfan","Qamb_room","Qcool"]
+data_Q={i:np.zeros(n) for i in variables_Q}
+
+tiempo = data[:n, 0]
+data_U["Pot_compresor_real"] = data[:n, 2]
+data_T["T_room_real"] = data[:n, 3]
+
+data_T["T_evap"]=np.array([T+273.15 for T in data[:n, 5]])
+data_T["T_amb"]=np.array([T+273.15 for T in data[:n, 4]])
+data_T["T_cond"]=np.array([T+273.15 for T in data[:n, 9]])
 
 "------------------------------CONFIGURACION PARA VALIDACION-------------------------------"
-dt=int(tiempo_simulacion[1]-tiempo_simulacion[0])             #s
-tfinal_horas=len(tiempo_simulacion)*dt/3600     #horas
-tsalto_minutos=0    #min
+dt=int(tiempo[1]-tiempo[0])             #s
 mass_fruit=0        #kg
-diff_ave=8        #°C
-
-"----------------------------------CONDICIONES INICIALES-----------------------------------"
-T_amb_inicial=28.4    #°C
-T_room_inicial=T_room_real[0]   #°C
-T_fruit_inicial=25  #°C
 
 "----------------------------------VALORES PARA CALIBRAR-----------------------------------"
 U_amb=2
 U_fruta=10
-"----------------------------------------FUNCIONES-----------------------------------------"
+
+"-----------------------------------FUNCIONES GENERALES------------------------------------"
+"Integracion por Runge Kutta"
+def integracion (dy,y,x):
+    k1=dy(y,x) 
+    k2=dy(y+dt*k1/2,x+dt/2)
+    k3=dy(y+dt*k2/2,x+dt/2)
+    k4=dy(y+dt*k3,x+dt)
+    return y+(k1+2*k2+2*k3+k4)*dt/6
 
 "Area superficial en función de la masa del mango"
 def fruit_area(mass_fruit):  #mass_fruit en kg
@@ -42,32 +54,44 @@ def fruit_area(mass_fruit):  #mass_fruit en kg
     densidad_mango = 1100    #kg/m^3
     NuMangos=int(mass_fruit/peso_mango) #Numero de Mangos
     factor_correccion = 0.7  
-    #Factor de corrección por contacto entre mangos y resistencia térmica de la caja"
+    #Factor de corrección por contacto entre mangos y resistencia térmica de la caja
     volumen_mango = peso_mango / densidad_mango                             # m^3
     radio_mango = (3 * volumen_mango / (4 * math.pi)) ** (1 / 3)            # m
     area_superficial_mango = 4 * math.pi * radio_mango ** 2                 # m^2
     area_superficial_total = area_superficial_mango * NuMangos              # m^2
     area_superficial_efectiva = factor_correccion * area_superficial_total  # m^2
     return area_superficial_efectiva
-
-"Calor de Conveccion de la fruta"
+"------------------------------------FUNCIONES DE CALOR------------------------------------"
+"Calor de Convección de la fruta"
 def Conv_fruit_room(T_fruit,T_room):
-    U=97.595 #W/K
+    #U=97.595 #W/K
     SA_fruit=fruit_area(mass_fruit)#m^2
     if (mass_fruit<=0):
         return 0 #En caso de que la cámara esté vacía, la convección sera de 0
     else:
         return U_fruta*SA_fruit*(T_fruit-T_room)
 
-"Calor de Conveccion del ambiente a la cámara"
+"Calor de Convección del ambiente a la cámara"
 def Conv_amb_room(T_amb,T_room):
-    U=6.0594 #W/K
+    #U=6.0594 #W/K
     SA_room=2*(height*width+length*height)+length*width#m^2
     return U_amb*SA_room*(T_amb-T_room)
 
-"Calor de Conveccion del ventilador"
+"Calor en el evaporador"
+def Q_dot_evaporador(W_comp,T_e,T_c):
+    eta_is=0.5  #-
+    q_e=0.95    #-
+    q_c=0.05    #-
+    h_1=cp('H','T', T_e,'Q',q_e,'R134A') #J/kg      #entalpía a la salida del evaporador
+    h_2=cp('H','T', T_c,'Q',q_c,'R134A') #J/kg      #entalpía a la salida del condensador
+    s_e=cp('S','T', T_e,'Q',q_e,'R134A') #J/kg-K    #entropía a la entrada del compresor
+    h_3=cp('H','T', T_c,'S',s_e,'R134A') #J/kg      #entalpía del proceso de compresión isoentrópica
+    return W_comp*eta_is*((h_1-h_2)/(h_3-h_1))
+
+"Calor de Convección del ventilador"
 Conv_fan=40#W
 
+"---------------------------FUNCIONES DE CÁLCULO DE TEMPERATURAS---------------------------"
 "Funcion que calcula la nueva temperatura del room"
 def Id_T_room(Q_fruit,Q_fan,Q_room,Q_cool,T_room,tiempo):
     densidad=cp('D', 'T', T_room, 'P', P_air, 'Air')#kg/m^3
@@ -85,26 +109,6 @@ def Id_T_fruit(Q_fruit,T_fruit,tiempo):
         return (-Q_fruit)/(mass_fruit*c_p)
     return integracion(d_T_fruit,T_fruit,tiempo)
 
-"Integracion por Runge Kutta"
-def integracion (dy,y,x):
-    k1=dy(y,x) 
-    k2=dy(y+dt*k1/2,x+dt/2)
-    k3=dy(y+dt*k2/2,x+dt/2)
-    k4=dy(y+dt*k3,x+dt)
-    return y+(k1+2*k2+2*k3+k4)*dt/6
-
-"Función que calcula el calor en el evaporador"
-def Q_dot_evaporador(T_e,T_c):
-    W_comp=3e3  #W
-    eta_is=0.9  #-
-    q_e=0.95    #-
-    q_c=0.05    #-
-    h_1=cp('H','T', T_e,'Q',q_e,'R134A') #J/kg      #entalpía a la salida del evaporador
-    h_2=cp('H','T', T_c,'Q',q_c,'R134A') #J/kg      #entalpía a la salida del condensador
-    s_e=cp('S','T', T_e,'Q',q_e,'R134A') #J/kg-K    #entropía a la entrada del compresor
-    h_3=cp('H','T', T_c,'S',s_e,'R134A') #J/kg      #entalpía del proceso de compresión isoentrópica
-    return W_comp*eta_is*((h_1-h_2)/(h_3-h_1))
-
 "---------------------------------CONFIGURACION ADICIONAL----------------------------------"
 # Propiedades de la camara de refrigeracion
 height=2.2; width=4.2; length=3.8 #All units in m
@@ -112,36 +116,23 @@ v_room=height*width*length      #m^3
 P_air=101325                    #Pa
 
 # Pasar los tiempos a unidades estándar
-tfinal=int(tfinal_horas*3600-1)   #sec
+tfinal=int(tiempo[-1])   #sec
 n=int(tfinal/dt+1)              #numero de elementos para Array
-tsalto=tsalto_minutos*60        #sec
-
-# Crear los arrays
-tiempo=np.zeros(n)
-variables_T=["T_room","T_fruit","T_amb","T_eva","T_cond"]
-data_T={i:np.zeros(n) for i in variables_T}
-variables_Q=["Qfruit","Qfan","Qamb_room","Qcool"]
-data_Q={i:np.zeros(n) for i in variables_Q}
-
-##definicion del tiempo y el salto:
-tiempo = np.linspace(0, tfinal, int(tfinal/dt)+1)
-data_T["T_eva"]=temp_eva_real+273.15
-data_T["T_amb"]=temp_amb_real+273.15
 
 "--------------------------CONFIGURACION DE CONDICIONES INICIALES--------------------------"
-tiempo[0]=0
-data_T["T_room"][0]=T_room_inicial+273.15#K
-data_T["T_fruit"][0]=T_fruit_inicial+273.15#K
-data_T["T_cond"][0]=data_T["T_amb"][0]+diff_ave;
+tiempo[0]=1
+data_T["T_room"][0]=data_T["T_room_real"][0]+273.15#K
+data_T["T_fruit"][0]=0+273.15#K
 
 "-------------------------------------BUCLE PRINCIPAL--------------------------------------"
-for i in range(dt,tfinal+dt,dt):
+for i in range(dt,tfinal,dt):
     j=int(i/dt) # ubicación del dato
     #Se calculan los calores:
-    data_Q["Qfruit"][j]=(Conv_fruit_room(data_T["T_fruit"][j-1],data_T["T_room"][j-1]))
+    if (mass_fruit>=0):
+        data_Q["Qfruit"][j]=(Conv_fruit_room(data_T["T_fruit"][j-1],data_T["T_room"][j-1]))
     data_Q["Qamb_room"][j]=(Conv_amb_room(data_T["T_amb"][j-1],data_T["T_room"][j-1]))
     data_Q["Qfan"][j]=(Conv_fan)
-    data_Q["Qcool"][j]=Q_dot_evaporador(data_T["T_eva"][j-1],data_T["T_cond"][j-1])
+    data_Q["Qcool"][j]=Q_dot_evaporador(data_U["Pot_compresor_real"][j-1]*1000,data_T["T_evap"][j-1],data_T["T_cond"][j-1])
    
     #Se calculan las nuevas temperaturas:
     data_T["T_room"][j]=(Id_T_room(data_Q["Qfruit"][j-1],data_Q["Qfan"][j-1],
@@ -150,7 +141,6 @@ for i in range(dt,tfinal+dt,dt):
     if (mass_fruit>0):
         data_T["T_fruit"][j]=(Id_T_fruit(data_Q["Qfruit"][j-1],data_T["T_fruit"][j-1],
                                          tiempo[j-1]))
-    data_T["T_cond"][j]=data_T["T_amb"][j-1]+diff_ave
     
 "----------------------------------GRAFICAS DE SIMULACION----------------------------------"
 
@@ -162,7 +152,7 @@ else:
     n_plots=3
 fig, axs = plt.subplots(n_plots, 1, sharex=True, figsize=(7, 7))
 
-axs[0].plot(tiempo/60, data_T["T_eva"]-273.15, 'r')
+axs[0].plot(tiempo/60, data_T["T_evap"]-273.15, 'r')
 axs[0].set_title('Temp. a la salida del evaporador')
 axs[0].set_ylabel('[°C]')
 axs[0].grid(True) 
@@ -173,44 +163,7 @@ axs[1].set_title('Temp. habitacion')
 axs[1].set_ylabel('[°C]')
 axs[1].grid(True) 
 axs[1].set_ylim(np.min(data_T["T_room"])-274.15, np.max(data_T["T_room"])-272.15)
-if (n_plots==3):
-# Tercer gráfico
-    axs[2].plot(tiempo/60, data_T["T_fruit"]-273.15, 'b')
-    axs[2].set_title('Temp. fruta')
-    axs[2].set_xlabel('Tiempo [min]')
-    axs[2].set_ylabel('[°C]')
-    axs[2].grid(True) 
-    axs[2].set_ylim(np.min(data_T["T_fruit"])-274.15, data_T["T_fruit"][0]-272.15)
-
 fig.suptitle('Resultados de Simulación')
-plt.show()
-
-# Plotear todas las gráficas de data_T en una distribución 2x2
-plt.figure(figsize=(8, 6))  # Tamaño de la figura
-
-for i, (key, data) in enumerate(data_T.items(), 1):
-    plt.subplot(3, 2, i)  # Crear subplots en una cuadrícula de 2x2
-    plt.plot(tiempo, data-273.15)
-    plt.title(f'{key}')
-    plt.xlabel('Tiempo (s)')
-    plt.ylabel('Temperatura (°C)')
-    plt.grid(True)
-
-plt.tight_layout()  # Ajustar la disposición para evitar solapamientos
-plt.show()
-
-# Plotear todas las gráficas de data_Q en una distribución 2x2
-plt.figure(figsize=(8, 6))  # Tamaño de la figura
-
-for i, (key, data) in enumerate(data_Q.items(), 1):
-    plt.subplot(2, 2, i)  # Crear subplots en una cuadrícula de 2x2
-    plt.plot(tiempo[1:], data[1:])  # Omitir el primer valor de 'tiempo' que es 0
-    plt.title(f'{key}')
-    plt.xlabel('Tiempo (s)')
-    plt.ylabel('Tasa de Calor (W)')
-    plt.grid(True)
-
-plt.tight_layout()  # Ajustar la disposición para evitar solapamientos
 plt.show()
 
 "------------------------------------GUARDAR EL ARCHIVO------------------------------------"
@@ -220,19 +173,19 @@ folder_name = f'Intentos/Intento_val_{current_time}'
 os.makedirs(folder_name)
 plot_path = os.path.join(folder_name, 'ResultadoDeSimulacion.png')
 fig.savefig(plot_path)
-
+end_time = time.time()
+execution_time = end_time - start_time
 # Crear archivo txt para guardar las variables a, b y c
 txt_path = os.path.join(folder_name, 'DatosDeSimulacion.txt')
 with open(txt_path, 'w') as f:
-    f.write(f'Tiempo de simulación : {tfinal_horas} horas.\n')
+    f.write(f'Tiempo de simulación : {(tfinal/3600):.3f} horas.\n')
     f.write(f'Tiempo de muestreo : {dt} segundos.\n')
     #f.write(f'Temperatura del evaporador a la salida: {Te_value-273.15} °C \n')
-    f.write('Condiciones Iniciales de Simulación: \n')
-    f.write(f'Temperatura ambiente : {T_amb_inicial} °C \n')
-    f.write(f'Temperatura de la cámara : {T_room_inicial} °C \n')
-    f.write(f'Temperatura de la fruta : {T_fruit_inicial} °C \n')
-    f.write(f'Temperatura del condensador : {tfinal_horas} °C \n')
-    f.write('Valores de Constantes variables: \n')
+    f.write('CONDICIONES INICIALES DE SIMULACION: \n')
+    f.write(f'Temperatura ambiente : {data_T["T_amb"][0]-273.15} °C \n')
+    f.write(f'Temperatura de la cámara : {data_T["T_room"][0]-273.15} °C \n')
+    f.write(f'Temperatura del evaporador : {data_T["T_evap"][0]-273.15} °C \n')
+    f.write('CONSTANTES A MODIFICAR: \n')
     f.write(f'U del ambiente : {U_amb} °C \n')
-    f.write(f'U del ambiente : {U_fruta} °C \n')
-    f.write(f'Q ventilador : {Conv_fan} °C \n')
+    f.write(f'Q ventilador : {Conv_fan} W \n')
+    f.write(f'Tiempo de ejecución : {execution_time:4f} segundos \n')
