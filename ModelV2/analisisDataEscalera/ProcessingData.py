@@ -29,10 +29,8 @@ data_T["T_salida_compresor"] = data[:n, 8]
 data_T["T_cond"] = data[:n, 9]
 data_P["P_entrada_compresor"] = data[:n, 10]
 data_P["P_salida_compresor"] = data[:n, 11]
-
 plt.close('all')
 """
-
 "-----------------------------------GRAFICAS ESENCIALES------------------------------------"
 plt.figure(figsize=(10, 6))
 for i, (key, data) in enumerate(data_U.items(), 1):
@@ -68,6 +66,7 @@ for i, (key, data) in enumerate(data_P.items(), 1):
 plt.tight_layout()
 plt.show()
 
+
 "------------------------------------ANALISIS POSTERIOR------------------------------------"
 "Relación entre la temperatura del condensador y la temperatura ambiente"
 diff_temperatura=data_T["T_cond"]-data_T["T_amb"]
@@ -96,6 +95,7 @@ plt.show()
 "Entalpía a la entrada del compresor"
 h_entrada_compresion=resultado = [cp('H','T',x+273.15,'P',y*1e5,'R134A')/1000 for x, y 
                              in zip(data_T["T_entrada_compresor"], data_P["P_entrada_compresor"])]
+
 plt.figure(figsize=(10, 6))
 plt.plot(tiempo/60,h_entrada_compresion)
 plt.title('Entalpía a la entrada del compresor')
@@ -103,18 +103,32 @@ plt.xlabel('Tiempo (min)')
 plt.ylabel('Entalpía (kJ/kg)')
 plt.grid(True)
 plt.tight_layout()  
-plt.show()
 
 "Entalpía a la salida del compresor"
 h_salida_compresion=resultado = [cp('H','T',x+273.15,'P',y*1e5,'R134A')/1000 for x, y 
                              in zip(data_T["T_salida_compresor"], data_P["P_salida_compresor"])]
+
 plt.figure(figsize=(10, 6))
 plt.plot(tiempo/60,h_salida_compresion)
 plt.title('Entalpía a la salida del compresor')
 plt.xlabel('Tiempo (min)')
 plt.ylabel('Entalpía (kJ/kg)')
 plt.grid(True)
-plt.tight_layout()  
+plt.tight_layout() 
+plt.legend() 
+
+
+"Entalpía adquirida en el compresor"
+h_ganada = [h_salida_compresion[i] - h_entrada_compresion[i] for i in range(len(h_entrada_compresion))]
+
+# Crear el gráfico
+plt.plot(tiempo/60,h_ganada, label='Entalpía', color='blue')
+plt.plot(tiempo/60,data_U["Pot_compresor"], label='Potencia del compresor', color='red')
+plt.title('Entalpía ganada en el compresor')
+plt.xlabel('tiempo')
+plt.ylabel('Entalpía [KJ/Kg]')
+plt.grid(True)
+plt.legend()
 plt.show()
 
 "Entalpía a la salida del evaporador"
