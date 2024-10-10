@@ -173,38 +173,35 @@ def mse(y_p,y):
     j=np.dot(e,e)/len(y)
     return j  
 n_datos=len(y)
-epocas=5
-betha1=np.zeros(epocas)
-betha2=np.zeros(epocas)
-costFunction=np.zeros(epocas)
-betha1[0]=0
-betha1[1]=0.5
-betha2[0]=0
-betha2[1]=390
-alpha=5e-1
-deltab1=0.1 
-deltab2=0.1
-y_pred_temp1=np.zeros(n_datos)
-y_pred_temp2=np.zeros(n_datos)
 
-for i in range(2,epocas):
-    y_pred_temp1=sim(betha1[i-1],betha2[i-1])
-    costFunction[i-1]=mse(y_pred_temp1,y)
-    print(f'mse={costFunction[i-1]}')
-    if i==3 and costFunction[i-1]>costFunction[i-2]:
-        print('Elegir un menor valor de velocidad de aprendizaje')
-        break
-    sumaj=0
-    y_inc_betha1=sim(betha1[i-1],betha2[i-2])
-    for j in range(n_datos):
-        sumaj+=(y_pred_temp1[j]-y[j])*(y_inc_betha1[j]-y_pred_temp2[j])
-    sumak=0
-    y_inc_betha2=sim(betha1[i-2],betha2[i-1])
-    for k in range(n_datos):
-        sumak+=(y_pred_temp1[j]-y[j])*(y_inc_betha2[j]-y_pred_temp2[j])
-    betha1[i]=betha1[i-1]-2*alpha*sumaj/(betha1[i-1]-betha1[i-2])
-    betha2[i]=betha2[i-1]-2*alpha*sumak/(betha2[i-1]-betha2[i-2])
-    y_pred_temp2=y_pred_temp1[:]
+def minimo(epocas,alpha):
+    betha1=np.zeros(epocas)
+    betha2=np.zeros(epocas)
+    costFunction=np.zeros(epocas)
+    betha1[0]=0
+    betha1[1]=0.5
+    betha2[0]=0
+    betha2[1]=390
+    y_pred_temp1=np.zeros(n_datos)
+    y_pred_temp2=np.zeros(n_datos)
+    for i in range(2,epocas):
+        y_pred_temp1=sim(betha1[i-1],betha2[i-1])
+        costFunction[i-1]=mse(y_pred_temp1,y)
+        print(f'mse={costFunction[i-1]}')
+        if i==3 and costFunction[i-1]>costFunction[i-2]:
+            print('Elegir un menor valor de velocidad de aprendizaje')
+            break
+        sumaj=0
+        y_inc_betha1=sim(betha1[i-1],betha2[i-2])
+        for j in range(n_datos):
+            sumaj+=(y_pred_temp1[j]-y[j])*(y_inc_betha1[j]-y_pred_temp2[j])
+        sumak=0
+        y_inc_betha2=sim(betha1[i-2],betha2[i-1])
+        for k in range(n_datos):
+            sumak+=(y_pred_temp1[j]-y[j])*(y_inc_betha2[j]-y_pred_temp2[j])
+        betha1[i]=betha1[i-1]-2*alpha*sumaj/(betha1[i-1]-betha1[i-2])
+        betha2[i]=betha2[i-1]-2*alpha*sumak/(betha2[i-1]-betha2[i-2])
+        y_pred_temp2=y_pred_temp1[:]
     
 plt.close('all')
 fig,(ax1,ax2)=plt.subplots(2,1,figsize=(8,6))
