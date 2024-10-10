@@ -20,13 +20,17 @@ betha1[1]=4
 betha2[0]=0
 betha2[1]=5
 alpha=5e-5
+deltab1=0.1 
+deltab2=0.1
 y_pred_temp1=np.zeros(n_datos)
 y_pred_temp2=np.zeros(n_datos)
 
 for i in range(2,epocas):
     y_pred_temp1=sim(betha1[i-1],betha2[i-1])
     costFunction[i-1]=mse(y_pred_temp1,b)
-    print(f'mse en pos={i-1} vale {costFunction[i-1]}')
+    if i==3 and costFunction[i-1]>costFunction[i-2]:
+        print('Elegir un menor valor de velocidad de aprendizaje')
+        break
     sumaj=0
     y_inc_betha1=sim(betha1[i-1],betha2[i-2])
     for j in range(n_datos):
@@ -36,9 +40,7 @@ for i in range(2,epocas):
     for k in range(n_datos):
         sumak+=(y_pred_temp1[j]-b[j])*(y_inc_betha2[j]-y_pred_temp2[j])
     betha1[i]=betha1[i-1]-2*alpha*sumaj/(betha1[i-1]-betha1[i-2])
-    print(f'Behta1 en pos={i} vale:{betha1[j]}')
-    betha2[i]=betha2[i-1]-2*alpha*sumak/(betha1[i-1]-betha1[i-2])
-    print(f'Behta2 en pos={i} vale:{betha2[j]}')
+    betha2[i]=betha2[i-1]-2*alpha*sumak/(betha2[i-1]-betha2[i-2])
     y_pred_temp2=y_pred_temp1[:]
     
 plt.close('all')

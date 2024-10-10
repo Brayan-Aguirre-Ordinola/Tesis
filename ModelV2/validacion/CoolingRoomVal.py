@@ -67,17 +67,10 @@ def fruit_area(mass_fruit):  #mass_fruit en kg
     area_superficial_total = area_superficial_mango * NuMangos              # m^2
     area_superficial_efectiva = factor_correccion * area_superficial_total  # m^2
     return area_superficial_efectiva
-def metricas(y_real, y_pred):
-    # Asegurarse que las series tengan la misma longitud
-    assert len(y_real) == len(y_pred), "Las series deben tener la misma longitud"
-    # Error de predicción final (FPE)
-    e = len(y_real)
-    fpe = np.var(y_real - y_pred) * (e + 1) / (e - 1)
-    # Error cuadrático medio (MSE)
-    mse = np.mean((y_real - y_pred)**2)
-    # Porcentaje de ajuste (FIT)
-    fit = 100 * (1 - np.linalg.norm(y_real - y_pred) / np.linalg.norm(y_real - np.mean(y_real)))
-    return fpe, mse, fit
+def mse(y_p,y):
+    e=[x-y for x,y in zip(y_p,y)]
+    j=np.dot(e,e)/len(y)
+    return j
 "------------------------------------FUNCIONES DE CALOR------------------------------------"
 "Calor de Convección de la fruta"
 def Conv_fruit_room(T_fruit,T_room):
@@ -156,7 +149,7 @@ for i in range(dt,tfinal,dt):
         data_T["T_fruit"][j]=(Id_T_fruit(data_Q["Qfruit"][j-1],data_T["T_fruit"][j-1],
                                          tiempo[j-1]))
 "-----------------------------------CALCULO DE METRICAS------------------------------------"
-fpe, mse, fit = metricas(data_T["T_room_real"]+273.15, data_T["T_room"])
+mse= mse(data_T["T_room_real"]+273.15, data_T["T_room"])
 
 "----------------------------------GRAFICAS DE SIMULACION----------------------------------"
 
@@ -208,6 +201,4 @@ with open(txt_path, 'w') as f:
     f.write(f'Refrigerante : {refrigerant} \n')
     f.write(f'Tiempo de ejecución : {execution_time:4f} segundos \n')
     f.write('----------------MÉTRICAS----------------\n')
-    f.write(f'FPE = {fpe} \n')
     f.write(f'MSE = {mse} \n')
-    f.write(f'FIT = {fit} \n')
